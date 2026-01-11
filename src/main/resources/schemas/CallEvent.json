@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://eventstreaming.com/schemas/CallEvent.json",
+  "title": "Call Communication Event",
+  "description": "Schema for call communication events",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the user"
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the event"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the event occurred"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["CALL_COMPLETED", "CALL_MISSED", "CALL_ANSWERED", "CALL_BUSY"],
+      "description": "Type of call event"
+    },
+    "phoneNumber": {
+      "type": "string",
+      "pattern": "^\\+?[1-9]\\d{1,14}$",
+      "description": "Phone number in E.164 format"
+    },
+    "durationSeconds": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 86400,
+      "description": "Call duration in seconds (max 24 hours)"
+    },
+    "callDirection": {
+      "type": ["string", "null"],
+      "enum": ["INBOUND", "OUTBOUND"],
+      "description": "Direction of the call"
+    },
+    "callerId": {
+      "type": ["string", "null"],
+      "description": "Caller identifier"
+    },
+    "calleeId": {
+      "type": ["string", "null"],
+      "description": "Callee identifier"
+    },
+    "disconnectReason": {
+      "type": ["string", "null"],
+      "enum": ["NORMAL", "BUSY", "NO_ANSWER", "FAILED", "CANCELLED", "NETWORK_ERROR"],
+      "description": "Reason for call disconnection"
+    },
+    "recordingUrl": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "URL to call recording"
+    },
+    "callQuality": {
+      "type": ["string", "null"],
+      "enum": ["EXCELLENT", "GOOD", "FAIR", "POOR"],
+      "description": "Perceived call quality"
+    },
+    "metadata": {
+      "type": ["object", "null"],
+      "description": "Additional event metadata",
+      "additionalProperties": true
+    }
+  },
+  "required": ["userId", "eventId", "timestamp", "eventType", "phoneNumber"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "eventType": { "const": "CALL_COMPLETED" }
+    }
+  },
+  "then": {
+    "properties": {
+      "durationSeconds": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "required": ["durationSeconds"]
+  }
+}

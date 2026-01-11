@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://eventstreaming.com/schemas/SmsEvent.json",
+  "title": "SMS Communication Event",
+  "description": "Schema for SMS communication events",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the user"
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the event"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the event occurred"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["SMS_REPLY", "SMS_DELIVERY", "SMS_BOUNCE", "SMS_CLICK"],
+      "description": "Type of SMS event"
+    },
+    "phoneNumber": {
+      "type": "string",
+      "pattern": "^\\+?[1-9]\\d{1,14}$",
+      "description": "Phone number in E.164 format"
+    },
+    "messageContent": {
+      "type": ["string", "null"],
+      "maxLength": 1600,
+      "description": "SMS message content"
+    },
+    "shortCode": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9]{3,8}$",
+      "description": "SMS short code"
+    },
+    "carrierId": {
+      "type": ["string", "null"],
+      "description": "Mobile carrier identifier"
+    },
+    "deliveryStatus": {
+      "type": ["string", "null"],
+      "enum": ["DELIVERED", "FAILED", "PENDING", "UNKNOWN"],
+      "description": "Delivery status for delivery events"
+    },
+    "replyContent": {
+      "type": ["string", "null"],
+      "maxLength": 1600,
+      "description": "Reply message content for reply events"
+    },
+    "metadata": {
+      "type": ["object", "null"],
+      "description": "Additional event metadata",
+      "additionalProperties": true
+    }
+  },
+  "required": ["userId", "eventId", "timestamp", "eventType", "phoneNumber"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "eventType": { "const": "SMS_REPLY" }
+    }
+  },
+  "then": {
+    "properties": {
+      "replyContent": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": ["replyContent"]
+  },
+  "else": {
+    "if": {
+      "properties": {
+        "eventType": { "const": "SMS_DELIVERY" }
+      }
+    },
+    "then": {
+      "properties": {
+        "deliveryStatus": {
+          "type": "string",
+          "enum": ["DELIVERED", "FAILED", "PENDING", "UNKNOWN"]
+        }
+      },
+      "required": ["deliveryStatus"]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+# Example Terraform Variables
+# Copy this to terraform.tfvars and update with your values
+
+# AWS Configuration
+aws_region = "us-east-1"
+app_name   = "event-streaming"
+environment = "dev"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+public_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
+
+# EC2 Configuration
+instance_type = "t3.medium"
+
+# Auto Scaling Configuration
+asg_min_size = 1
+asg_max_size = 5
+asg_desired_capacity = 2
+
+# RDS Configuration
+db_instance_class = "db.t3.micro"
+db_allocated_storage = 20
+db_max_allocated_storage = 100
+db_name = "eventstreaming"
+db_username = "admin"
+db_password = "YourSecurePassword123!"  # Change this!
+
+# Application Configuration
+java_heap_size = "768m"
+spring_profiles = "cluster-mysql"
+
+# Monitoring
+enable_detailed_monitoring = false
+log_retention_days = 7
+
+# Additional Tags
+additional_tags = {
+  Project = "EventStreaming"
+  Owner   = "YourName"
+  CostCenter = "Development"
+}

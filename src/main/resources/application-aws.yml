@@ -1,0 +1,244 @@
+# AWS Configuration - MySQL RDS, No Kafka, Optimized for Cloud
+# Use: -Dspring.profiles.active=aws
+
+spring:
+  application:
+    name: event-streaming-app-aws
+  main:
+    allow-bean-definition-overriding: true  # Fix bean naming conflicts
+  
+  # RDS MySQL Configuration (AWS optimized)
+  datasource:
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:event_streaming_db}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # HikariCP settings are handled by AwsDatabaseConfig
+  
+  # JPA Configuration for MySQL
+  jpa:
+    hibernate:
+      ddl-auto: update  # Allow schema updates for AWS
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+        generate_statistics: false
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+  
+  # Flyway for database migrations
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: false  # More lenient for AWS
+
+# Server Configuration
+server:
+  port: 8080
+  shutdown: graceful
+  tomcat:
+    threads:
+      max: 100
+      min-spare: 10
+    connection-timeout: 20000
+    max-connections: 1000
+
+# Pekko Configuration for Single Node AWS Deployment
+pekko:
+  # Single node configuration - no clustering for simplicity
+  cluster:
+    # Empty seed nodes for standalone mode
+    seed-nodes: []
+    min-nr-of-members: 1
+    # Disable cluster features for single node
+    sharding:
+      number-of-shards: 100
+      remember-entities: false
+      passivate-idle-entity-after: 30m
+  
+  # Remote configuration for single node
+  remote:
+    artery:
+      canonical:
+        hostname: ""  # Will be set via system property
+        port: 2551
+      bind:
+        hostname: 0.0.0.0
+        port: 2551
+  
+  # Persistence configuration for AWS MySQL
+  persistence:
+    journal:
+      plugin: "jdbc-journal"
+    snapshot-store:
+      plugin: "jdbc-snapshot-store"
+
+# JDBC persistence configuration for MySQL (AWS RDS)
+jdbc-journal:
+  slick:
+    profile: "slick.jdbc.MySQLProfile$"
+    db:
+      host: ${DB_HOST:pekko-cluster-everest-mysql.caxgimygw4oy.us-east-1.rds.amazonaws.com}
+      port: ${DB_PORT:3306}
+      name: ${DB_NAME:event_streaming_db}
+      user: ${DB_USERNAME:admin}
+      password: ${DB_PASSWORD}
+      driver: "com.mysql.cj.jdbc.Driver"
+      numThreads: 5
+      maxConnections: 5
+      minConnections: 1
+
+jdbc-snapshot-store:
+  slick:
+    profile: "slick.jdbc.MySQLProfile$"
+    db:
+      host: ${DB_HOST:pekko-cluster-everest-mysql.caxgimygw4oy.us-east-1.rds.amazonaws.com}
+      port: ${DB_PORT:3306}
+      name: ${DB_NAME:event_streaming_db}
+      user: ${DB_USERNAME:admin}
+      password: ${DB_PASSWORD}
+      driver: "com.mysql.cj.jdbc.Driver"
+      numThreads: 5
+      maxConnections: 5
+      minConnections: 1
+
+# Management and Monitoring Configuration (NO KAFKA HEALTH CHECKS)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState,diskSpace
+        readiness:
+          include: readinessState,db  # NO KAFKA in readiness
+  server:
+    port: 8558
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+    db:
+      enabled: true
+    kafka:
+      enabled: false  # DISABLE KAFKA HEALTH CHECKS
+    diskspace:
+      enabled: true
+      threshold: 100MB
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      environment: production
+      region: us-east-1
+
+# Logging Configuration
+logging:
+  level:
+    com.eventstreaming: INFO
+    com.eventstreaming.cluster: INFO
+    com.eventstreaming.kafka: ERROR  # Suppress Kafka logs
+    com.eventstreaming.persistence.H2EventJournal: ERROR  # Suppress H2EventJournal logs
+    org.apache.pekko.cluster: INFO
+    org.apache.pekko.persistence: INFO
+    org.apache.pekko.stream: WARN
+    org.springframework.kafka: ERROR  # Suppress Kafka errors
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    slick: WARN
+    
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Application-specific configuration - KAFKA DISABLED
+app:
+  # CRITICAL: Disable Kafka completely
+  kafka:
+    enabled: false  # This activates NoOp implementations
+    
+  streams:
+    # Disable all Kafka streaming
+    pekko-kafka:
+      enabled: false
+      auto-start: false
+      
+    # Disable Spring Kafka consumer
+    spring-kafka:
+      enabled: false
+      
+    event-processing:
+      kafka-enabled: false  # Disable Kafka event processing
+      auto-start: false
+      batch-size: 100
+      processing-timeout: 30s
+  
+  cluster:
+    # Single node settings
+    node-roles: worker,processor
+    
+  monitoring:
+    # Custom metrics configuration
+    enabled: true
+    interval: 30s
+    detailed-metrics: true
+    
+  security:
+    # Security settings
+    cors:
+      enabled: true
+      allowed-origins: "*"
+      allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+      allowed-headers: "*"
+      max-age: 3600
+
+# AWS-specific configuration
+aws:
+  region: us-east-1
+  
+  # CloudWatch configuration
+  cloudwatch:
+    enabled: true
+    namespace: PekkoCluster
+
+# Resilience and Circuit Breaker Configuration (NO KAFKA)
+resilience4j:
+  circuitbreaker:
+    instances:
+      database:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        
+  retry:
+    instances:
+      database:
+        max-attempts: 3
+        wait-duration: 1s
+        exponential-backoff-multiplier: 2
+        
+  timelimiter:
+    instances:
+      database:
+        timeout-duration: 10s

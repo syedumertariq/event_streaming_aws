@@ -1,0 +1,181 @@
+# Cluster MySQL Configuration for AWS Single-Node Deployment
+# This profile maintains compatibility with existing AWS deployment scripts
+# that use -Dspring.profiles.active=cluster-mysql
+
+spring:
+  application:
+    name: pekko-cluster-mysql-aws
+  main:
+    allow-bean-definition-overriding: true
+  
+  # Exclude H2 for MySQL-only deployment
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.h2.H2ConsoleAutoConfiguration
+  
+  # MySQL Database Configuration (AWS RDS)
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DATABASE}?useSSL=${MYSQL_USE_SSL:false}&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+    # HikariCP connection pool settings
+    hikari:
+      maximum-pool-size: ${MYSQL_MAX_POOL_SIZE:10}
+      minimum-idle: ${MYSQL_MIN_IDLE:2}
+      connection-timeout: ${MYSQL_CONNECTION_TIMEOUT:30000}
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+      pool-name: "PekkoClusterMySQLCP"
+  
+  # JPA Configuration for MySQL
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+  
+  # Flyway for database migrations
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: false
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+# Management and Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  server:
+    port: 8558
+  health:
+    db:
+      enabled: true
+    kafka:
+      enabled: false  # Disable Kafka health checks for AWS
+
+# Pekko Configuration for AWS Single-Node (cluster-mysql profile)
+pekko:
+  persistence:
+    journal:
+      plugin: "jdbc-journal"
+      auto-start-journals: ["jdbc-journal"]
+    snapshot-store:
+      plugin: "jdbc-snapshot-store"
+      auto-start-snapshot-stores: ["jdbc-snapshot-store"]
+  
+  # Single-node cluster configuration (compatible with existing scripts)
+  cluster:
+    seed-nodes: []  # Will be set via system property
+    roles: ["worker"]
+    min-nr-of-members: 1
+    
+    sharding:
+      number-of-shards: 100
+      passivate-idle-entity-after: 30m
+      remember-entities: false
+  
+  # Remote configuration
+  remote:
+    artery:
+      canonical:
+        hostname: ""  # Will be set via system property
+        port: 2551
+      bind:
+        hostname: 0.0.0.0
+        port: 2551
+
+# JDBC persistence configuration for MySQL (AWS RDS)
+jdbc-journal:
+  slick:
+    profile: "slick.jdbc.MySQLProfile$"
+    db:
+      host: ${MYSQL_HOST}
+      port: ${MYSQL_PORT:3306}
+      name: ${MYSQL_DATABASE}
+      user: ${MYSQL_USERNAME}
+      password: ${MYSQL_PASSWORD}
+      driver: "com.mysql.cj.jdbc.Driver"
+      numThreads: 5
+      maxConnections: 5
+      minConnections: 1
+
+jdbc-snapshot-store:
+  slick:
+    profile: "slick.jdbc.MySQLProfile$"
+    db:
+      host: ${MYSQL_HOST}
+      port: ${MYSQL_PORT:3306}
+      name: ${MYSQL_DATABASE}
+      user: ${MYSQL_USERNAME}
+      password: ${MYSQL_PASSWORD}
+      driver: "com.mysql.cj.jdbc.Driver"
+      numThreads: 5
+      maxConnections: 5
+      minConnections: 1
+
+# Logging Configuration
+logging:
+  level:
+    com.eventstreaming: INFO
+    com.eventstreaming.cluster: INFO
+    com.eventstreaming.kafka: ERROR  # Suppress Kafka logs
+    org.apache.pekko.cluster: INFO
+    org.apache.pekko.persistence: INFO
+    org.springframework.kafka: ERROR  # Suppress Kafka errors
+    org.hibernate.SQL: WARN
+    slick: WARN
+    
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Application-specific configuration - KAFKA DISABLED for AWS
+app:
+  kafka:
+    enabled: false  # Disable Kafka for AWS deployment
+    
+  streams:
+    pekko-kafka:
+      enabled: false
+      auto-start: false
+      
+    spring-kafka:
+      enabled: false
+      
+    event-processing:
+      kafka-enabled: false
+      auto-start: false
+      batch-size: 100
+      processing-timeout: 30s
+  
+  cluster:
+    node-roles: worker,processor
+    
+  monitoring:
+    enabled: true
+    interval: 30s
+    detailed-metrics: true
+
+# Dashboard configuration for single-node AWS deployment
+dashboard:
+  aggregation:
+    mode: local  # Use local service calls instead of HTTP for single node

@@ -1,0 +1,31 @@
+# Base Application Configuration
+# This is the default configuration that gets loaded first
+# AWS-specific settings are in application-aws.yml
+
+spring:
+  application:
+    name: event-streaming-app
+  main:
+    allow-bean-definition-overriding: true
+  
+  # Default to AWS profile for this repository
+  profiles:
+    active: aws
+
+# Default server configuration
+server:
+  port: 8080
+  shutdown: graceful
+
+# Default logging
+logging:
+  level:
+    com.eventstreaming: INFO
+    org.apache.pekko: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Default application settings
+app:
+  kafka:
+    enabled: false  # Kafka disabled by default for AWS deployment

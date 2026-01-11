@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://eventstreaming.com/schemas/EmailEvent.json",
+  "title": "Email Communication Event",
+  "description": "Schema for email communication events",
+  "type": "object",
+  "properties": {
+    "userId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the user"
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the event"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the event occurred"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["EMAIL_OPEN", "EMAIL_CLICK", "EMAIL_BOUNCE", "EMAIL_DELIVERY"],
+      "description": "Type of email event"
+    },
+    "emailAddress": {
+      "type": "string",
+      "format": "email",
+      "description": "Email address associated with the event"
+    },
+    "subject": {
+      "type": ["string", "null"],
+      "description": "Email subject line"
+    },
+    "campaignId": {
+      "type": ["string", "null"],
+      "description": "Campaign identifier"
+    },
+    "linkUrl": {
+      "type": ["string", "null"],
+      "format": "uri",
+      "description": "URL that was clicked (for click events)"
+    },
+    "bounceReason": {
+      "type": ["string", "null"],
+      "description": "Reason for bounce (for bounce events)"
+    },
+    "metadata": {
+      "type": ["object", "null"],
+      "description": "Additional event metadata",
+      "additionalProperties": true
+    }
+  },
+  "required": ["userId", "eventId", "timestamp", "eventType", "emailAddress"],
+  "additionalProperties": false,
+  "if": {
+    "properties": {
+      "eventType": { "const": "EMAIL_CLICK" }
+    }
+  },
+  "then": {
+    "properties": {
+      "linkUrl": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "required": ["linkUrl"]
+  },
+  "else": {
+    "if": {
+      "properties": {
+        "eventType": { "const": "EMAIL_BOUNCE" }
+      }
+    },
+    "then": {
+      "properties": {
+        "bounceReason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["bounceReason"]
+    }
+  }
+}
